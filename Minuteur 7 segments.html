@@ -65,6 +65,11 @@ body.running .setup{display:none}
 .tier input[type=checkbox]{width:18px;height:18px;accent-color:var(--fg);margin:0}
 .tier .field input{font-size:16px;width:4em;padding:4px}
 .tier .txt{color:var(--muted);font-size:14px}
+.tickmin input{font-size:16px;width:4em;padding:4px}
+select{font:500 14px var(--f-ui);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:7px 8px}
+select:focus-visible{outline:2px solid var(--led);outline-offset:2px}
+.fname{font-size:13px;color:var(--fg);max-width:16em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.txt-muted{font-size:13px;color:var(--muted)}
 .hint{font-size:13px;color:var(--muted);text-align:center;max-width:46ch}
 @media (max-width:560px){.keys{display:none}}
 @media (prefers-reduced-motion:reduce){body.done #disp .s.on{animation:none}.panel{transition:none}}
@@ -95,6 +100,36 @@ body.running .setup{display:none}
     <button id="tiersBtn" aria-expanded="false" aria-controls="tiers">Paliers</button>
     <label class="check"><input type="checkbox" id="hideOff"> Masquer les segments éteints</label>
   </div>
+  <div class="group setup">
+    <span class="lbl">Pendant</span>
+    <select id="srcMain" aria-label="Son pendant tout le décompte"></select>
+    <span class="group" id="fileRowMain" hidden>
+      <button id="pickMain" class="chip">Choisir un fichier…</button>
+      <span id="nameMain" class="fname">Aucun fichier</span>
+    </span>
+    <button id="testMain" class="chip">Écouter</button>
+  </div>
+  <div class="group setup">
+    <span class="lbl">Fin</span>
+    <label class="field tickmin"><span>sur les</span><input id="tickMin" type="number" min="0.5" step="0.5" inputmode="decimal"><span>dernières min</span></label>
+    <select id="srcEnd" aria-label="Son de fin"></select>
+    <span class="group" id="fileRowEnd" hidden>
+      <button id="pickEnd" class="chip">Choisir un fichier…</button>
+      <span id="nameEnd" class="fname">Aucun fichier</span>
+    </span>
+    <button id="testEnd" class="chip">Écouter</button>
+  </div>
+  <div class="group setup">
+    <label class="check"><input type="checkbox" id="accel"> Accélérer les fichiers sur la fin</label>
+    <label class="check"><input type="checkbox" id="tickOn"> Tic-tac qui accélère sur la fin</label>
+    <button id="tickTest" class="chip">Écouter</button>
+    <input type="file" id="musicFile" accept="audio/*" hidden>
+  </div>
+  <div class="group setup">
+    <label class="check"><input type="checkbox" id="cdOn"> Compte à rebours sur les</label>
+    <label class="field tickmin"><input id="cdSec" type="number" min="1" max="59" inputmode="numeric"><span>dernières s de chaque minute</span></label>
+    <button id="cdTest" class="chip">Écouter</button>
+  </div>
   <div class="tiers setup" id="tiers" hidden>
     <p class="hint">La couleur change quand le temps restant passe sous le seuil. Si plusieurs paliers s'appliquent, c'est le plus bas qui l'emporte.</p>
     <div id="tierRows" class="tiers"></div>
@@ -107,7 +142,7 @@ body.running .setup{display:none}
 const $=id=>document.getElementById(id);
 const svg=$('disp'), NS='http://www.w3.org/2000/svg', root=document.documentElement;
 const MAP={0:'abcdef',1:'bc',2:'abged',3:'abgcd',4:'fgbc',5:'afgcd',6:'afgedc',7:'abc',8:'abcdefg',9:'abcdfg'};
-const T=11, G=1.6, W=62, H=104, DW=80, CW=26;
+const T=11, G=1.6, W=62, H=104, GAP=18, CG=15; // GAP : entre deux chiffres ; CG : de chaque côté des deux-points
 
 function hSeg(x1,x2,y){const t=T/2;return `${x1},${y} ${x1+t},${y-t} ${x2-t},${y-t} ${x2},${y} ${x2-t},${y+t} ${x1+t},${y+t}`}
 function vSeg(x,y1,y2){const t=T/2;return `${x},${y1} ${x+t},${y1+t} ${x+t},${y2-t} ${x},${y2} ${x-t},${y2-t} ${x-t},${y1+t}`}
@@ -121,22 +156,25 @@ let digits=[], layout='';
 function build(fmt){
   if(fmt===layout) return; layout=fmt; svg.innerHTML=''; digits=[];
   const g=document.createElementNS(NS,'g'); g.setAttribute('transform','translate(12 0) skewX(-6)');
-  let x=0;
+  // x = bord droit de l'élément précédent ; l'écart est ajouté avant chaque élément
+  let x=0, prev=null;
   for(const ch of fmt){
     if(ch===':'){
+      x+=CG;
       for(const cy of [H*0.3,H*0.7]){const c=document.createElementNS(NS,'rect');
-        c.setAttribute('x',x+CW/2-T/2);c.setAttribute('y',cy-T/2);c.setAttribute('width',T);c.setAttribute('height',T);
+        c.setAttribute('x',x);c.setAttribute('y',cy-T/2);c.setAttribute('width',T);c.setAttribute('height',T);
         c.setAttribute('class','s on');g.appendChild(c);}
-      x+=CW;
+      x+=T; prev=':';
     }else{
+      if(prev===':') x+=CG; else if(prev) x+=GAP;
       const d={};
       for(const k in SEG){const p=document.createElementNS(NS,'polygon');p.setAttribute('points',SEG[k]);
         p.setAttribute('transform',`translate(${x} 0)`);p.setAttribute('class','s');g.appendChild(p);d[k]=p;}
-      digits.push(d); x+=DW;
+      digits.push(d); x+=W; prev='8';
     }
   }
   svg.appendChild(g);
-  svg.setAttribute('viewBox',`-4 -6 ${x-(DW-W)+20} ${H+12}`);
+  svg.setAttribute('viewBox',`-4 -6 ${x+20} ${H+12}`);
 }
 function setDigits(str){
   str.split('').forEach((ch,i)=>{const on=MAP[ch];
@@ -150,6 +188,16 @@ const DEFAULT={base:'blanc',tiers:[{on:true,min:10,c:'vert'},{on:true,min:5,c:'a
 let cfg=JSON.parse(JSON.stringify(DEFAULT));
 try{const s=JSON.parse(localStorage.getItem('minuteur-cfg'));
   if(s&&COLORS[s.base]&&Array.isArray(s.tiers)&&s.tiers.length===3) cfg=s;}catch(e){}
+if(!cfg.tick) cfg.tick={on:true,min:5};
+if(cfg.music===undefined) cfg.music=true;
+if(!cfg.cd) cfg.cd={on:true,sec:5};
+if(!cfg.style) cfg.style='mission';
+if(cfg.accel===undefined) cfg.accel=true;
+if(cfg.mainSrc===undefined){ // reprise des réglages de la version précédente
+  const old=cfg.style==='fichier'?'file':cfg.style;
+  cfg.mainSrc=cfg.music&&cfg.fromStart?old:'none';
+  cfg.endSrc=cfg.music===false?'same':old;
+}
 const save=()=>{try{localStorage.setItem('minuteur-cfg',JSON.stringify(cfg));}catch(e){}};
 
 function colorFor(sec){
@@ -231,24 +279,24 @@ function start(){
   if(state==='idle'){setFromInputs(); if(total<=0){st.textContent='Réglez une durée';return;}}
   ensureAudio();
   endAt=performance.now()+remainMs; state='run'; document.body.classList.add('running');
-  go.textContent='Pause'; $('plus').hidden=false; st.innerHTML='<b>●</b> En cours'; lockScreen(); idleWatch(); tick();
+  go.textContent='Pause'; $('plus').hidden=false; st.innerHTML='<b>●</b> En cours'; lockScreen(); idleWatch(); startTicks(); tick();
 }
 function pause(){
-  cancelAnimationFrame(raf); remainMs=endAt-performance.now(); state='pause';
+  cancelAnimationFrame(raf); stopTicks(); remainMs=endAt-performance.now(); state='pause';
   go.textContent='Reprendre'; st.textContent='En pause'; document.body.classList.remove('idle');
 }
 function reset(){
-  cancelAnimationFrame(raf); stopAlarm(); state='idle';
+  cancelAnimationFrame(raf); stopAlarm(); stopTicks(); state='idle';
   document.body.classList.remove('running','done','idle');
   go.textContent='Démarrer'; $('plus').hidden=true; st.textContent='Prêt'; releaseScreen(); setFromInputs();
 }
 function finish(){
-  state='done'; render(0); document.body.classList.add('done'); document.body.classList.remove('idle');
+  state='done'; stopTicks(); render(0); document.body.classList.add('done'); document.body.classList.remove('idle');
   go.textContent='Arrêter'; $('plus').hidden=true; st.innerHTML='<b>Temps écoulé</b>'; alarm();
 }
 go.onclick=()=>state==='run'?pause():start();
 $('reset').onclick=reset;
-$('plus').onclick=()=>{endAt+=60000; if(endAt-performance.now()>=3600000) withHours=true;};
+$('plus').onclick=()=>{endAt+=60000; cdDone=Infinity; if(endAt-performance.now()>=3600000) withHours=true;};
 $('stage').onclick=()=>go.click();
 
 // Son
@@ -260,6 +308,246 @@ function alarm(){ if(!audio) return; let n=0;
   const burst=()=>{const t=audio.currentTime;for(let i=0;i<4;i++)beep(t+i*.18,2400);if(++n<30)alarmTimer=setTimeout(burst,1000);};
   burst(); }
 function stopAlarm(){clearTimeout(alarmTimer);}
+
+// Tic-tac de tension : intervalle de 1 s au seuil jusqu'à ~0,12 s à zéro, tonalité qui monte
+function click(t,p,alt){
+  const o=audio.createOscillator(),g=audio.createGain();
+  o.type='square'; o.frequency.value=(alt?820:1100)*(1+0.6*(1-p));
+  const v=0.06+0.1*(1-p);
+  g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.035);
+  o.connect(g).connect(audio.destination); o.start(t); o.stop(t+0.04);
+}
+const tickInterval=p=>0.12+0.88*Math.pow(p,1.3);
+let tickTimer=0, nextTick=0, tickAlt=false, nextBeat=0, step=0, mus=null, preview=null, cdDone=Infinity;
+
+// ---------- Briques de synthèse ----------
+const mtof=n=>440*Math.pow(2,(n-69)/12);
+function osc(type,f,dest){const o=audio.createOscillator();o.type=type;o.frequency.value=f;o.connect(dest);o.start();return o;}
+function env(t,dest,peak,att,dec){const g=audio.createGain();g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(peak,t+att);g.gain.exponentialRampToValueAtTime(0.0001,t+att+dec);g.connect(dest);return g;}
+function shot(type,f,t,dest,peak,att,dec,fEnd){const g=env(t,dest,peak,att,dec),o=audio.createOscillator();o.type=type;
+  o.frequency.setValueAtTime(f,t);if(fEnd)o.frequency.exponentialRampToValueAtTime(fEnd,t+att+dec);o.connect(g);o.start(t);o.stop(t+att+dec+0.02);return o;}
+let noiseBuf=null;
+function noiseShot(t,dest,peak,dec,type,f,Q){
+  const a=audio;if(!noiseBuf){noiseBuf=a.createBuffer(1,a.sampleRate,a.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
+  const s=a.createBufferSource();s.buffer=noiseBuf;const fl=a.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=Q;
+  s.connect(fl).connect(env(t,dest,peak,0.001,dec));s.start(t);s.stop(t+dec+0.05);
+}
+// note tenue avec filtre à enveloppe ; o = {type,v,cut,fenv,q,det,att,rel}
+function note(m,t,midi,dur,o){
+  const a=audio,f=mtof(midi),att=o.att||0.005,rel=o.rel||0.05;
+  const fl=a.createBiquadFilter();fl.type='lowpass';fl.Q.value=o.q||1;
+  fl.frequency.setValueAtTime(o.cut*(o.fenv||1),t);fl.frequency.exponentialRampToValueAtTime(o.cut,t+Math.max(0.02,Math.min(dur,0.15)));fl.connect(m.bus);
+  const g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(o.v,t+att);
+  g.gain.setValueAtTime(o.v,t+Math.max(att+0.001,dur-0.02));g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(att+0.002,dur)+rel);g.connect(fl);
+  (o.det||[0]).forEach(d=>{const x=a.createOscillator();x.type=o.type||'sawtooth';x.frequency.value=f;x.detune.value=d;x.connect(g);x.start(t);x.stop(t+dur+rel+0.05);});
+}
+const chord=(m,t,notes,dur,o)=>notes.forEach(n=>note(m,t,n,dur,o));
+const kick=(m,t,v=1)=>shot('sine',150,t,m.bus,0.9*v,0.002,0.28,42);
+const snare=(m,t,v=1)=>{noiseShot(t,m.bus,0.45*v,0.16,'bandpass',1900,0.9);shot('triangle',200,t,m.bus,0.3*v,0.001,0.08,120);};
+const hat=(m,t,v=1,open)=>noiseShot(t,m.bus,0.16*v,open?0.2:0.035,'highpass',7500,0.7);
+const tom=(m,t,f,v=1)=>shot('sine',f,t,m.bus,0.7*v,0.002,0.35,f*0.55);
+const crash=(m,t,v=1)=>noiseShot(t,m.bus,0.22*v,1.2,'highpass',5000,0.5);
+const BASS={type:'sawtooth',v:0.2,cut:450,fenv:4,q:6,det:[-7,7]};
+const BRASS={type:'sawtooth',v:0.06,cut:1500,fenv:2.5,q:1,det:[-12,0,12],att:0.02,rel:0.12};
+const PLUCK={type:'square',v:0.05,cut:2400,fenv:2,q:3,rel:0.04};
+const LEAD={type:'sawtooth',v:0.06,cut:3000,fenv:1.5,q:2,det:[-6,6],att:0.01,rel:0.1};
+const STR={type:'sawtooth',v:0.045,cut:2200,det:[-10,10],att:0.004,rel:0.04};
+const GTR={type:'sawtooth',v:0.1,cut:1700,fenv:3,q:4,rel:0.15};
+// niveau d'intensité : 1 au seuil, 4 dans le dernier quart -> les instruments entrent un à un
+const lvl=p=>{const q=1-p;return q<0.2?1:q<0.45?2:q<0.7?3:4;};
+
+// ---------- Musiques d'action (compositions originales, synthétisées) ----------
+// div : pas par temps ; bpm(p) : le tempo monte en approchant de zéro ; beat(m,t,p,s) : joue le pas s
+const STYLES={
+  mission:{label:'Mission secrète (5/4)',div:2,bpm:p=>120+56*Math.pow(1-p,1.2),
+    beat(m,t,p,s){const L=lvl(p),i=s%10,b=Math.floor(s/10)%2,e=60/this.bpm(p)/2;
+      const acc={0:1,3:1,6:1,8:1}, roots=b?[38,38,41,40]:[38,38,36,39], k=[0,3,6,8].indexOf(i);
+      if(k>=0) note(m,t,roots[k],e*(k<2?2.6:1.6),BASS); else if(L>=2) note(m,t,38,e*0.5,{...BASS,v:0.11});
+      hat(m,t,acc[i]?0.9:0.5);
+      if(L>=2&&acc[i]) kick(m,t,0.8);
+      if(L>=2&&(i===3||i===8)) snare(m,t,0.7);
+      if(L>=3&&(i===0||i===6)) chord(m,t,b?[58,62,65]:[62,65,69],e*0.8,BRASS);
+      if(L>=4){ if(i===9) tom(m,t,140,0.8); if(s%20===0) crash(m,t);
+        const mel={0:[74,3],3:[72,3],6:[77,2],8:[76,2],10:[74,3],13:[69,3],16:[70,2],18:[72,2]}[s%20];
+        if(mel) note(m,t,mel[0],e*mel[1]*0.95,LEAD);}
+    }},
+  poursuite:{label:'Course-poursuite',div:4,bpm:p=>124+48*Math.pow(1-p,1.2),
+    beat(m,t,p,s){const L=lvl(p),i=s%16,b=Math.floor(s/16)%4,e=60/this.bpm(p)/4;
+      const root=[33,29,36,31][b], CH=[[57,60,64,69],[53,57,60,65],[60,64,67,72],[55,59,62,67]][b];
+      if(i%4===0) kick(m,t);
+      if(i%4===2) note(m,t,root+12,e*1.6,BASS); else if(L>=2&&i%4!==0) note(m,t,root,e*0.8,{...BASS,v:0.1});
+      if(L>=2){ if(i%4===2) hat(m,t,0.9,true); if(i===4||i===12) snare(m,t,0.8);}
+      if(L>=3){ hat(m,t,0.5); note(m,t,CH[[0,2,1,3][i%4]]+12,e*0.9,PLUCK);}
+      if(L>=4){ if(i===0) crash(m,t,0.7);
+        if([0,3,6,10,12].includes(i)) chord(m,t,CH.slice(1).map(n=>n+12),e*1.5,BRASS);}
+    }},
+  agent:{label:'Agent double',div:4,bpm:p=>132+44*Math.pow(1-p,1.2),
+    beat(m,t,p,s){const L=lvl(p),i=s%16,b=Math.floor(s/16)%2,e=60/this.bpm(p)/4;
+      const riff=b?[40,43,45,47,48,47,45,43]:[40,43,45,46,45,43,40,38];
+      if(i%2===0) note(m,t,riff[i/2]+12,e*1.8,GTR);
+      if(i%2===0) hat(m,t,i%4?0.5:0.8);
+      if(L>=2){ if(i===0||i===8||i===10) kick(m,t,0.9); if(i===4||i===12) snare(m,t,0.8); if(i%4===0) note(m,t,riff[i/2]-12,e*3,BASS);}
+      if(L>=3&&(i===0||i===14)) chord(m,t,[64,67,71,74,78],e*1.2,BRASS);
+      if(L>=4){ if(s%32===0) crash(m,t); hat(m,t,0.35);
+        const mel={0:[83,6],6:[81,2],8:[79,4],12:[78,4],16:[76,8],24:[79,4],28:[78,4]}[s%32];
+        if(mel) note(m,t,mel[0],e*mel[1]*0.95,LEAD);}
+    }},
+  assaut:{label:'Assaut final',div:4,bpm:p=>104+56*Math.pow(1-p,1.2),
+    beat(m,t,p,s){const L=lvl(p),i=s%16,b=Math.floor(s/16)%4,e=60/this.bpm(p)/4;
+      note(m,t,[50,50,53,50,55,50,53,52][i%8],e*0.85,STR);
+      if([0,3,6,8,11,14].includes(i)) tom(m,t,i===0?75:95,0.9); else if(L>=3) tom(m,t,110,0.35);
+      if(L>=2&&i===0){ chord(m,t,[38,45,50,53],e*3,{...BRASS,v:0.09}); kick(m,t); noiseShot(t,m.bus,0.3,0.25,'lowpass',2500,1);}
+      if(L>=3&&(i===0||i===8)){ const mel=[[62,69],[65,67],[69,72],[70,69]][b]; note(m,t,mel[i?1:0],e*7.5,{...BRASS,v:0.08});}
+      if(L>=4){ if(i>=12) snare(m,t,0.4+0.15*(i-12)); if(i===0) crash(m,t);}
+    }},
+};
+
+// ---------- Fichiers de l'ordinateur (gardés dans ce navigateur, jamais envoyés) ----------
+// main : son « Pendant », end : son « Fin » (clé IndexedDB 'music' reprise de la version précédente)
+const FILES={main:{key:'main',arr:null,buf:null,name:'',dec:false},end:{key:'music',arr:null,buf:null,name:'',dec:false}};
+function decodeFile(F){
+  if(F.buf||F.dec||!F.arr||!audio) return; F.dec=true;
+  audio.decodeAudioData(F.arr.slice(0)).then(b=>{F.buf=b;F.dec=false;})
+    .catch(()=>{F.dec=false;F.arr=null;$(F===FILES.main?'nameMain':'nameEnd').textContent='Fichier illisible';});
+}
+function fileStyle(slot){return{
+  start(m){m.fg=audio.createGain();m.fg.connect(m.master);m.src=null;},
+  update(m,p,t){const F=FILES[slot];
+    if(!m.src){ if(F.buf){const s=audio.createBufferSource();s.buffer=F.buf;s.loop=true;s.connect(m.fg);s.start();m.src=s;m.stops.push(s);} else decodeFile(F); }
+    if(m.src) m.src.playbackRate.setTargetAtTime(cfg.accel?1+0.12*(1-p)*(1-p):1,t,0.5);}
+};}
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('minuteur',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function idbPut(k,v){try{const db=await idb();db.transaction('f','readwrite').objectStore('f').put(v,k);}catch(e){}}
+async function idbGet(k){try{const db=await idb();return await new Promise(r=>{const q=db.transaction('f').objectStore('f').get(k);
+  q.onsuccess=()=>r(q.result);q.onerror=()=>r(null);});}catch(e){return null;}}
+
+// Quel son doit jouer ? « Fin » non défini (ou fichier absent) -> le son « Pendant » continue
+const srcKey=(src,slot)=>src==='none'?null:src==='file'?(FILES[slot].arr?'file:'+slot:null):src;
+function wantedKey(endPhase){
+  const main=srcKey(cfg.mainSrc,'main');
+  if(!endPhase||cfg.endSrc==='same') return main;
+  return srcKey(cfg.endSrc,'end')||main;
+}
+function startMusic(key){
+  const a=audio,m={id:key,style:key.startsWith('file:')?fileStyle(key.slice(5)):STYLES[key],stops:[]};
+  m.master=a.createGain();m.master.gain.value=0;m.master.connect(a.destination);
+  m.bus=a.createDynamicsCompressor();m.bus.threshold.value=-14;m.bus.ratio.value=4;
+  const bg=a.createGain();bg.gain.value=0.8;m.bus.connect(bg).connect(m.master);
+  m.style.start&&m.style.start(m);m.master.gain.setTargetAtTime(1,a.currentTime,0.4);mus=m;
+}
+function stopMusic(fade=0.15){
+  if(!mus) return; const m=mus; mus=null; const t=audio.currentTime;
+  m.master.gain.cancelScheduledValues(t); m.master.gain.setTargetAtTime(0,t,fade);
+  setTimeout(()=>{m.stops.forEach(o=>{try{o.stop();}catch(e){}});m.master.disconnect();},fade*7000);
+}
+
+// ---------- Compte à rebours sur les dernières secondes de chaque minute ----------
+function cdSound(t,r){ // r = secondes restantes dans la minute (0 = changement de minute)
+  const out=audio.destination;
+  if(r===0){
+    shot('sine',110,t,out,0.9,0.003,1.4,30); shot('triangle',55,t,out,0.4,0.003,1.6,28);
+    noiseShot(t,out,0.5,0.5,'lowpass',900,1); noiseShot(t,out,0.25,0.12,'bandpass',2500,3);
+    return;
+  }
+  const hi=r%2===0, loud=r<=3?1:0.8;
+  shot('sine',hi?180:160,t,out,0.7*loud,0.002,0.14,55);
+  noiseShot(t,out,0.45*loud,0.05,'bandpass',hi?3400:2800,8);
+  [1250,1873,2710].forEach((f,i)=>shot('square',f*(hi?1.06:1),t,out,0.05*loud/(i+1),0.001,0.07));
+}
+
+// ---------- Ordonnanceur audio commun (anticipation de 150 ms sur l'horloge audio) ----------
+function remAt(t){
+  if(preview) return preview.lim*(1-(t-preview.t0)/preview.span);
+  return (endAt-performance.now())/1000-(t-audio.currentTime);
+}
+function schedule(){
+  if(!audio||(!preview&&state!=='run')) return;
+  const lim=preview?preview.lim:cfg.tick.min*60, now=audio.currentTime, horizon=now+0.15, remNow=remAt(now);
+  if(preview&&remNow<=0){stopTicks();return;}
+  if(preview?preview.kind==='ticks':cfg.tick.on){
+    const sc=preview?0.5:1;
+    if(nextTick<now) nextTick=now+0.02;
+    while(nextTick<horizon){
+      const rem=remAt(nextTick); if(rem<=0) break;
+      if(rem<=lim){const p=Math.min(1,rem/lim); click(nextTick,p,tickAlt=!tickAlt); nextTick+=tickInterval(p)*sc;}
+      else{nextTick=now+(remNow-lim); break;}
+    }
+  }
+  let key=null, pFix=null;
+  if(preview){ if(preview.kind==='main'){key=wantedKey(false);pFix=1;} else if(preview.kind==='end') key=wantedKey(true); }
+  else key=wantedKey(remNow<=lim);
+  if(mus&&mus.id!==key) stopMusic(0.5);   // fondu enchaîné vers le son de fin
+  if(key){
+    if(!mus){startMusic(key); nextBeat=now+0.05; step=0;}
+    const S=mus.style, clip=r=>pFix??Math.min(1,Math.max(0,r/lim));
+    S.update&&S.update(mus,clip(remNow),now);
+    if(S.beat){
+      if(nextBeat<now) nextBeat=now+0.02;
+      while(nextBeat<horizon){
+        const rem=remAt(nextBeat); if(rem<=0) break;
+        const pp=clip(rem); S.beat(mus,nextBeat,pp,step++); nextBeat+=60/S.bpm(pp)/S.div;
+      }
+    }
+  }
+  if(!preview&&cfg.cd.on){
+    for(let v=Math.ceil(remNow)-1;v>0;v--){
+      const tb=now+(remNow-v); if(tb>horizon) break;
+      if(v<cdDone){const r=v%60; if(r===0||r<=cfg.cd.sec) cdSound(Math.max(tb,now),r); cdDone=v;}
+    }
+  }
+}
+const TEST={main:'testMain',end:'testEnd',ticks:'tickTest'};
+function resetTestBtns(){Object.values(TEST).forEach(id=>$(id).textContent='Écouter');}
+function startTicks(){clearInterval(tickTimer);stopMusic();preview=null;resetTestBtns();
+  nextTick=0;nextBeat=0;cdDone=Infinity;decodeFile(FILES.main);decodeFile(FILES.end);tickTimer=setInterval(schedule,25);}
+function stopTicks(){clearInterval(tickTimer);stopMusic();preview=null;resetTestBtns();}
+function startPreview(kind){
+  if(preview){const same=preview.kind===kind;stopTicks();if(same)return;}
+  ensureAudio(); if(!audio) return; decodeFile(FILES.main); decodeFile(FILES.end);
+  const btn=$(TEST[kind]);
+  if(kind!=='ticks'&&!wantedKey(kind==='end')){btn.textContent='Aucun son';setTimeout(()=>{if(!preview)btn.textContent='Écouter';},1500);return;}
+  clearInterval(tickTimer); stopMusic();
+  // aperçu : « Pendant » tel quel, « Fin » et tic-tac avec toute la montée compressée
+  preview={kind,t0:audio.currentTime+0.05,span:kind==='end'?24:12,lim:cfg.tick.min*60};
+  nextTick=0; nextBeat=0; tickTimer=setInterval(schedule,25); btn.textContent='Arrêter';
+}
+
+// ---------- Réglages ----------
+const tickOn=$('tickOn'), tickMin=$('tickMin'), cdOn=$('cdOn'), cdSec=$('cdSec'), accel=$('accel'), fileIn=$('musicFile');
+const SEL={main:$('srcMain'),end:$('srcEnd')};
+const FIRST={main:['none','Aucun'],end:['same','Continuer le son « Pendant »']};
+for(const slot of ['main','end']){
+  const opts=[FIRST[slot],...Object.entries(STYLES).map(([id,s])=>[id,s.label]),['file','Fichier de mon ordinateur…']];
+  for(const [v,l] of opts){const o=document.createElement('option');o.value=v;o.textContent=l;SEL[slot].appendChild(o);}
+}
+const valid=(slot,v)=>v===FIRST[slot][0]||v==='file'||!!STYLES[v];
+if(!valid('main',cfg.mainSrc)) cfg.mainSrc='none';
+if(!valid('end',cfg.endSrc)) cfg.endSrc='mission';
+const prop={main:'mainSrc',end:'endSrc'}, row={main:'fileRowMain',end:'fileRowEnd'}, nameEl={main:'nameMain',end:'nameEnd'};
+const syncRows=()=>{for(const s of ['main','end']) $(row[s]).hidden=cfg[prop[s]]!=='file';};
+let pickSlot='main';
+const pick=slot=>{pickSlot=slot;fileIn.click();};
+for(const slot of ['main','end']){
+  SEL[slot].value=cfg[prop[slot]];
+  SEL[slot].onchange=()=>{cfg[prop[slot]]=SEL[slot].value;syncRows();save();if(SEL[slot].value==='file'&&!FILES[slot].arr)pick(slot);};
+}
+$('pickMain').onclick=()=>pick('main'); $('pickEnd').onclick=()=>pick('end');
+$('testMain').onclick=()=>startPreview('main'); $('testEnd').onclick=()=>startPreview('end'); $('tickTest').onclick=()=>startPreview('ticks');
+fileIn.onchange=async()=>{const f=fileIn.files[0]; if(!f) return; const F=FILES[pickSlot];
+  ensureAudio(); stopTicks();
+  F.arr=await f.arrayBuffer(); F.buf=null; F.name=f.name; $(nameEl[pickSlot]).textContent=f.name;
+  decodeFile(F); idbPut(F.key,{name:f.name,data:F.arr}); fileIn.value='';};
+for(const slot of ['main','end']) idbGet(FILES[slot].key).then(v=>{if(v&&v.data){const F=FILES[slot];F.arr=v.data;F.name=v.name;$(nameEl[slot]).textContent=v.name;}});
+tickOn.checked=cfg.tick.on; tickMin.value=cfg.tick.min; cdOn.checked=cfg.cd.on; cdSec.value=cfg.cd.sec; accel.checked=cfg.accel!==false; syncRows();
+tickOn.onchange=()=>{cfg.tick.on=tickOn.checked;save();};
+accel.onchange=()=>{cfg.accel=accel.checked;save();};
+tickMin.oninput=()=>{cfg.tick.min=Math.max(0.5,parseFloat(tickMin.value.replace(',','.'))||5);save();};
+cdOn.onchange=()=>{cfg.cd.on=cdOn.checked;save();};
+cdSec.oninput=()=>{cfg.cd.sec=Math.min(59,Math.max(1,parseInt(cdSec.value,10)||5));save();};
+$('cdTest').onclick=()=>{ensureAudio(); if(!audio) return; const t=audio.currentTime+0.05, n=cfg.cd.sec;
+  for(let i=0;i<n;i++) cdSound(t+i,n-i); cdSound(t+n,0);};
 
 // Écran allumé + plein écran
 async function lockScreen(){try{wake=await navigator.wakeLock?.request('screen');}catch(e){}}
@@ -279,7 +567,7 @@ function idleWatch(){document.body.classList.remove('idle');clearTimeout(idleT);
 
 // Clavier
 document.addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT'&&e.key!=='Enter') return;
+  if((e.target.tagName==='INPUT'||e.target.tagName==='SELECT')&&e.key!=='Enter') return;
   if(e.target.tagName==='BUTTON'&&(e.key===' '||e.key==='Enter')) return;
   if(e.key===' '||e.key==='Enter'){e.preventDefault();go.click();}
   else if(e.key==='r'||e.key==='R') reset();
