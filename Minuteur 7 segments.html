@@ -21,10 +21,14 @@ body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px
 *{box-sizing:border-box}
 .stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding-block:16px;cursor:pointer}
 #disp{width:100%;max-height:100%;display:block;overflow:visible}
-#disp .s{fill:var(--led-off);transition:fill .25s}
+body{--seg-off:var(--led-off)}
+body.hide-off{--seg-off:transparent}
+#disp .s{fill:var(--seg-off);transition:fill .25s}
 #disp .s.on{fill:var(--led);filter:drop-shadow(0 0 6px var(--glow))}
 body.done #disp .s.on{animation:blink .5s steps(1) infinite}
-@keyframes blink{50%{fill:var(--led-off);filter:none}}
+@keyframes blink{50%{fill:var(--seg-off);filter:none}}
+.check{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--fg);margin:0}
 .status{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:0;right:0;text-align:center;
   font-family:var(--f-mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);pointer-events:none}
 .status b{color:var(--led);font-weight:500}
@@ -89,6 +93,7 @@ body.running .setup{display:none}
     <span class="lbl">Couleur</span>
     <span class="dots" id="baseDots"></span>
     <button id="tiersBtn" aria-expanded="false" aria-controls="tiers">Paliers</button>
+    <label class="check"><input type="checkbox" id="hideOff"> Masquer les segments éteints</label>
   </div>
   <div class="tiers setup" id="tiers" hidden>
     <p class="hint">La couleur change quand le temps restant passe sous le seuil. Si plusieurs paliers s'appliquent, c'est le plus bas qui l'emporte.</p>
@@ -165,6 +170,9 @@ function makeDots(box,get,set){
   }
 }
 makeDots($('baseDots'),()=>cfg.base,c=>cfg.base=c);
+const hideBox=$('hideOff');
+hideBox.checked=!!cfg.hideOff; document.body.classList.toggle('hide-off',hideBox.checked);
+hideBox.onchange=()=>{cfg.hideOff=hideBox.checked;document.body.classList.toggle('hide-off',cfg.hideOff);save();};
 
 function buildTiers(){
   const wrap=$('tierRows'); wrap.innerHTML='';
